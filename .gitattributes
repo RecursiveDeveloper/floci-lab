@@ -1,0 +1,9 @@
+# Normalize text files in the repository and use LF in the working tree.
+* text=auto
+
+*.md        text eol=lf
+*.sh        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.json      text eol=lf
+.gitignore  text eol=lf
