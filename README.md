@@ -43,7 +43,7 @@ floci-lab/
 │       ├── *.json                # ec2, iam, eks, kms, s3, cloudwatch snapshots
 │       └── eks/                  # OIDC keys, registries, token webhook per cluster
 └── eks_demo/
-    ├── credential_setup.sh       # exports AWS credentials and endpoint variables
+    ├── env_vars_setup.sh         # exports cluster name, role ARN, AWS credentials and endpoint variables
     ├── deploy_eks_cluster.sh     # creates IAM user + access keys and the EKS cluster
     └── apache_deployment.yml     # sample Apache deployment + LoadBalancer service
 ```
@@ -54,7 +54,7 @@ floci-lab/
 
 - **EKS emulation:** Creating a cluster spins up an isolated k3s sidecar container (`floci-aws-eks-dev-cluster`), so `kubectl` interacts with a real Kubernetes API server backed by emulated AWS APIs.
 
-- **IAM access-key rotation:** `deploy_eks_cluster.sh` generates a dedicated `eks-admin` user, rotates its keys on every run, and injects them into `credential_setup.sh` automatically.
+- **IAM access-key rotation:** `deploy_eks_cluster.sh` generates a dedicated `eks-admin` user, rotates its keys on every run, and injects them into `env_vars_setup.sh` automatically.
 
 ## Prerequisites
 
@@ -94,7 +94,7 @@ cd eks_demo
 This script:
 
 1. Recreates the `eks-admin` IAM user and rotates its access keys.
-2. Rewrites `credential_setup.sh` with the fresh credentials (sourced by every later run).
+2. Rewrites `env_vars_setup.sh` with the fresh credentials (sourced by every later run).
 3. Creates (or reuses) the `dev-cluster` cluster on `subnet-default-us-east-1-a` with the `eks-role` ARN.
 4. Runs `aws eks update-kubeconfig --name dev-cluster` so `kubectl` targets the emulated control plane.
 5. Prints the initial cluster resources via `kubectl get all --all-namespaces`.
@@ -116,10 +116,10 @@ The teardown order matters and is handled for you: floci-spawned sidecar contain
 
 ```
 cd eks_demo
-source credential_setup.sh   # do NOT run it with ./credential_setup.sh
+source env_vars_setup.sh   # do NOT run it with ./env_vars_setup.sh
 ```
 
-Executing it with `./credential_setup.sh` spawns a child shell — the variables are exported there and disappear as soon as the script exits, leaving `update-kubeconfig` to pick up stale or unrelated `AWS_*` variables (for example, credentials from a real AWS account) and replaying requests against the wrong endpoint.
+Executing it with `./env_vars_setup.sh` spawns a child shell — the variables are exported there and disappear as soon as the script exits, leaving `update-kubeconfig` to pick up stale or unrelated `AWS_*` variables (for example, credentials from a real AWS account) and replaying requests against the wrong endpoint.
 
 ```
 aws eks update-kubeconfig --name dev-cluster
@@ -151,11 +151,11 @@ The token is resolved by a webhook written to `infra/data/eks/webhook/dev-cluste
 
 | Setting | Value | Source |
 | --- | --- | --- |
-| Emulator endpoint | `http://localhost:4566` | `docker-compose.yml`, `credential_setup.sh` |
-| Region | `us-east-1` | `credential_setup.sh`, env defaults |
-| Account ID (emulated) | `000000000000` | hardcoded in `deploy_eks_cluster.sh` |
-| Cluster name | `dev-cluster` | `deploy_eks_cluster.sh` |
-| IAM user | `eks-admin` | `deploy_eks_cluster.sh` |
+| Emulator endpoint | `http://localhost:4566` | `docker-compose.yml`, `env_vars_setup.sh` |
+| Region | `us-east-1` | `env_vars_setup.sh`, env defaults |
+| Account ID (emulated) | `000000000000` | inside `CLUSTER_ARN_ROLE` in `env_vars_setup.sh` |
+| Cluster name | `dev-cluster` | `env_vars_setup.sh` |
+| IAM user | `eks-admin` | `env_vars_setup.sh` |
 
 ## Customization
 
@@ -166,7 +166,7 @@ Edit the referenced scripts to adapt the lab:
 
 ```
 cd eks_demo
-source credential_setup.sh
+source env_vars_setup.sh
 kubectl apply -f apache_deployment.yml
 ```
 
@@ -176,5 +176,5 @@ kubectl apply -f apache_deployment.yml
 
 - The `infra/data/` directory is generated state, never checked in — deleting it is equivalent to destroying the account.
 - EKS state lives in the `floci-aws-eks-dev-cluster` Docker volume; only `destroy.sh` cleans it correctly. `docker compose down` alone is not sufficient.
-- Credentials in `credential_setup.sh` are emulator-local and regenerated per deploy — they are not real AWS keys.
+- Credentials in `env_vars_setup.sh` are emulator-local and regenerated per deploy — they are not real AWS keys.
 - Costs are zero: everything is CPU-local, and emulated EC2/networking resources live as JSON snapshots.

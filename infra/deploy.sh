@@ -4,7 +4,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-echo -e "\nDeployinh floci-aws-emulator service...\n"
+echo -e "\nDeploying floci-aws-emulator service...\n"
 docker compose --progress auto up --detach --build
 
 until curl -s http://localhost:4566/_floci/health >/dev/null 2>&1; do
